@@ -5,7 +5,7 @@ import speech_recognition as sr
 import os
 import threading
 from collections import OrderedDict
-# oren
+# tomer
 AUDIO_PATH = "audio_test.csv"
 
 
