@@ -36,6 +36,7 @@ class AntennaThread(threading.Thread):
 
 class AntennaHandler:
     COLUMNS = ["EPC", "Time", "ReadCount", "RSSI", "Antenna", "Frequency", "Phase"]
+    # Columns will always start with EPC and then Time
     BAUDRATE = 115200
     NUM_INPUTS = len(COLUMNS)
 
