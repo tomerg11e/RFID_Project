@@ -4,6 +4,7 @@ from keyboardthread import KeyboardThread, merge_inputs
 from model import Model
 import os
 import time
+from antennahandler import AntennaHandler
 
 
 def create_train_set_without_break(dir_path: str, using_antenna: bool):
@@ -44,11 +45,13 @@ def create_train_set_with_break(dir_path: str, using_antenna: bool = True):
 
 
 def main():
-    # dir_path = f"test_{int(time.time())}"
+    # dir_path = f"test_sets/test_{int(time.time())}"
     # create_train_set_with_break(dir_path, using_antenna=False)
+
     path = "_test_dummy/merged.csv"
     model = Model(uni_model_path="model.eh")
-    model.train(path)
+    # model.train(path)
+    model.predict_stream(port=AntennaHandler.find_arduino_device())
 
 
 if __name__ == '__main__':

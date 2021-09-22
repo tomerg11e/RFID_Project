@@ -5,8 +5,9 @@ import speech_recognition as sr
 import os
 import threading
 from collections import OrderedDict
-# tomer 1
+
 AUDIO_PATH = "audio_test.csv"
+AUDIO_COLUMNS = ['EPC', 'Time', 'location', 'moving', 'active']
 
 
 class AudioThread(threading.Thread):
@@ -39,7 +40,6 @@ class AudioThread(threading.Thread):
 
 
 class AudioHandler:
-    COLUMNS = ['EPC', 'Time', 'location', 'moving', 'active']
     SILENT_INPUT = "┬-silent-┬"
     PROBLEMATIC_INPUT = "┬-problem-┬"
     TERMINATE_INPUT = "┬-terminating thread-┬\n"
@@ -133,7 +133,7 @@ class AudioHandler:
         creating 2 files, one will contain the recognised text and the other the labels
         :return: the text_file path
         """
-        header = AudioHandler.COLUMNS
+        header = AUDIO_COLUMNS
         path = self.output_path
 
         dir_path, file_name, *_ = path.split('\\')

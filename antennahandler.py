@@ -9,12 +9,14 @@ import threading
 import re
 
 ANTENNA_PATH = "antenna_test.csv"
+SERIAL_COLUMNS = ["EPC", "Time", "ReadCount", "RSSI", "Antenna", "Frequency", "Phase"]
 
 
 class AntennaThread(threading.Thread):
     """
     A class for running serial reading(using SerialHandler) in a separate thread
     """
+
     def __init__(self, output_path: str, timestamp_working: bool, port: Optional[str] = None):
         super().__init__()
         start_time = 0
@@ -35,10 +37,9 @@ class AntennaThread(threading.Thread):
 
 
 class AntennaHandler:
-    COLUMNS = ["EPC", "Time", "ReadCount", "RSSI", "Antenna", "Frequency", "Phase"]
     # Columns will always start with EPC and then Time
     BAUDRATE = 115200
-    NUM_INPUTS = len(COLUMNS)
+    NUM_INPUTS = len(SERIAL_COLUMNS)
 
     def __init__(self, output_path: str, start_time: int = 0, port: Optional[str] = None):
         if port is None:
@@ -55,7 +56,7 @@ class AntennaHandler:
         :return:
         """
         ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
-        header = AntennaHandler.COLUMNS
+        header = SERIAL_COLUMNS
         path = self.output_path
         if not os.path.exists(path):
             with open(fr"{path}", 'x') as file:
@@ -76,6 +77,13 @@ class AntennaHandler:
                 # print(f"writing to {path}: {output}")
                 file.write(output)
 
+    def get_port_data(self, port: str):
+        ser = serial.Serial(port=port, baudrate=AntennaHandler.BAUDRATE)
+        while self.running:
+            raw = ser.read_until()
+            inputs = AntennaHandler.parse_raw(raw, self.start_time)
+            yield ",".join(inputs) + "\n"
+
     @staticmethod
     def stream_to_df(ser: serial.Serial, n_data: int = 5) -> pd.DataFrame:
         """
@@ -94,7 +102,7 @@ class AntennaHandler:
                 i += 1
             except ValueError:
                 pass
-        return pd.DataFrame({AntennaHandler.COLUMNS[i]: matrix[i, :] for i in range(AntennaHandler.NUM_INPUTS)})
+        return pd.DataFrame({SERIAL_COLUMNS[i]: matrix[i, :] for i in range(AntennaHandler.NUM_INPUTS)})
 
     @staticmethod
     def parse_raw(raw: bytes, start_time: int = 0) -> List[str]:

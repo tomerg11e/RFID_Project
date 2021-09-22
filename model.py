@@ -1,14 +1,17 @@
+import serial
 import torch
 from torch import nn
 import torch.optim as optim
 import os
 import pandas as pd
-from antennahandler import AntennaHandler
-from audiohandler import AudioHandler
 from typing import Optional
+from antennahandler import SERIAL_COLUMNS, AntennaHandler
+from audiohandler import AUDIO_COLUMNS
 
-num_inputs = len(AntennaHandler.COLUMNS)
-num_outputs = len(AudioHandler.COLUMNS) - 2
+data_features = SERIAL_COLUMNS
+data_labels = AUDIO_COLUMNS[2:]
+num_inputs = len(data_features)
+num_outputs = len(data_labels)
 
 
 class Model:
@@ -31,35 +34,21 @@ class Model:
                 self.models[epc] = uni_model
         return uni_model
 
-    # def train(self, file_path: str):
-    #     with open(file_path, 'r', encoding='utf-8') as input_file:
-    #         columns = input_file.readline()[:-1]
-    #         columns = list(columns.split(','))
-    #         # columns will have all antenna_handler columns and then all the labels
-    #         inputs_len = len(AntennaHandler.COLUMNS)
-    #         for line in input_file:
-    #             line = line[:-1]
-    #             line = list(line.split(','))
-    #             data = line[:inputs_len]
-    #             labels = line[inputs_len:]
-    #             print("a")
-    #             epc = data[0]
-    #             self.get_uni_model(epc)
-
-    def train(self, file_path: str, learning_rate: float = 0.001):
+    def train(self, path: str, learning_rate: float = 0.001):
+        # TODO: make it that train can get a dir and not only a file, use keyboardthread.MERGE_PATH iuf needed
         uni_model = self.create_uni_model()
         loss_func = nn.MSELoss()
         optimizer = optim.Adam(uni_model.parameters(), lr=learning_rate)
         loss = torch.zeros((1, 1))
 
-        full_data = pd.read_csv(filepath_or_buffer=file_path, header=0, dtype=int, encoding="UTF-8")
+        full_data = pd.read_csv(filepath_or_buffer=path, header=0, dtype=int, encoding="UTF-8")
         full_data = full_data.sort_values(['EPC', 'Time'])
         for epc, df in full_data.groupby(full_data["EPC"]):
             uni_model.clear_hidden_layer()
-            data = torch.from_numpy(df[AntennaHandler.COLUMNS].values).float()
-            labels = torch.from_numpy(df[AudioHandler.COLUMNS[2:]].values).float()
+            data = torch.from_numpy(df[data_features].values).float()
+            labels = torch.from_numpy(df[data_labels].values).float()
             id_tensor = torch.unsqueeze(data, 1)
-            output = uni_model.forward(input=id_tensor).float()
+            output = uni_model.forward(input_values=id_tensor).float()
             temp_loss = loss_func(torch.flatten(output), torch.flatten(labels))
             print(f"loss: {temp_loss}")
             loss += temp_loss
@@ -67,7 +56,41 @@ class Model:
         loss.backward()
         optimizer.step()
         uni_model.zero_grad()
+
         torch.save(uni_model, self.uni_model_path)
+
+    def predict_stream(self, port: str, output_file: Optional[str] = None):
+        ser = serial.Serial(port=port, baudrate=AntennaHandler.BAUDRATE)
+        header = data_features + data_labels
+
+        def line_handler():
+            try:
+                raw = ser.read_until()
+                inputs = AntennaHandler.parse_raw(raw)
+            except ValueError:
+                return None
+            epc = inputs[0]
+            uni_model = self.create_uni_model(epc)
+            input_tensor = torch.Tensor([int(val) for val in inputs])
+            input_tensor = input_tensor[None, None, ...]
+            prediction = uni_model.forward(input_tensor)
+            output_tensor = torch.cat([input_tensor, prediction], dim=2)
+            output = torch.squeeze(output_tensor).tolist()
+            output = str(output)[1:-1]
+            return output
+
+        if output_file is not None:
+            if not os.path.exists(output_file):
+                with open(fr"{output_file}", 'x') as file:
+                    file.write(",".join(header) + "\n")
+            while True:
+                with open(fr"{output_file}", 'a') as file:
+                    line_output = line_handler()
+                    file.write(line_output)
+        else:
+            while True:
+                line_output = line_handler()
+                print(line_output)
 
 
 class UniModel(nn.Module):
@@ -77,13 +100,13 @@ class UniModel(nn.Module):
         self.hidden_layer = torch.zeros(size=(1, 1, num_inputs)).float()
         self.linear = nn.Linear(in_features=num_inputs, out_features=num_outputs)
 
-    def forward(self, input):
+    def forward(self, input_values: torch.Tensor) -> torch.Tensor:
         # output1, hidden_layer = self.rnn(input, self.hidden_layer)
         # self.hidden_layer = hidden_layer
         # return self.linear(output1)
 
         ls = []
-        for uno in torch.split(input, 1):
+        for uno in torch.split(input_values, 1):
             output, hidden_layer = self.rnn(uno, self.hidden_layer)
             self.hidden_layer = hidden_layer
             ls.append(output)
