@@ -17,7 +17,8 @@ class KeyboardThread(threading.Thread):
     LISTENING_STATE = "listening state"
     WAITING_STATE = "waiting state"
     MERGING_STATE = "merging state"
-    FINISHED_STATE = "finish_state"
+    FINISHED_STATE = "finish state"
+    STATE_HOT_KEY = 'ctrl+p'
 
     def __init__(self, dir_path: str, using_antenna: bool = True):
         super().__init__()
@@ -49,6 +50,8 @@ class KeyboardThread(threading.Thread):
             self.audio_thread.recognize_saved_audio()
             # here we can refresh the project directory and see the new files, editing them if there are problems.
             # when finished we will again manually change self.state
+            print("the audio files are ready and can be changed manually if needed."
+                  f"the code will continue after pressing: {KeyboardThread.STATE_HOT_KEY} again.")
 
         elif self.state == KeyboardThread.WAITING_STATE:
             # stop waiting, start merging the files for final training set
@@ -67,7 +70,7 @@ class KeyboardThread(threading.Thread):
         :return: None
         """
         print('Setting keyboard hotkeys...')
-        keyboard.add_hotkey('ctrl+p', self.change_state)
+        keyboard.add_hotkey(KeyboardThread.STATE_HOT_KEY, self.change_state)
 
     def start(self):
         """
@@ -76,7 +79,7 @@ class KeyboardThread(threading.Thread):
         """
         print("keyboard_thread is ready to start!")
         while self.state != KeyboardThread.FINISHED_STATE:
-            keyboard.wait(hotkey='ctrl+p')
+            keyboard.wait(hotkey=KeyboardThread.STATE_HOT_KEY)
         print("KeyboardHandler had finished running")
 
 

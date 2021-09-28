@@ -45,13 +45,17 @@ def create_train_set_with_break(dir_path: str, using_antenna: bool = True):
 
 
 def main():
-    # dir_path = f"test_sets/test_{int(time.time())}"
-    # create_train_set_with_break(dir_path, using_antenna=False)
+    dir_path = f"test_sets/test_{int(time.time())}"
+    # dir_path = "test_sets/test_1632749063"
+    # merge_inputs(dir_path=dir_path)
+    # create_train_set_with_break(dir_path, using_antenna=True)
 
-    path = "_test_dummy/merged.csv"
-    model = Model(uni_model_path="model.eh")
-    # model.train(path)
-    model.predict_stream(port=AntennaHandler.find_arduino_device())
+    a_h = create_antenna_thread(dir_path).antenna_handler
+    a_h.print_serial_port(True)
+    # path = "_test_dummy/merged.csv"
+    # model = Model(uni_model_path="model.eh")
+    # # model.train(path)
+    # model.predict_stream(port=AntennaHandler.find_arduino_device())
 
 
 if __name__ == '__main__':

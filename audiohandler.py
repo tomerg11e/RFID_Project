@@ -49,8 +49,9 @@ class AudioHandler:
         self.output_path = output_path
         self.r = sr.Recognizer()
         self.language = language
-        self.running = True
         self.mic = sr.Microphone(device_index=AudioHandler.find_microphone(wanted_mic=mic))
+        self.r.adjust_for_ambient_noise(self.mic)
+        self.running = True
 
     def __repr__(self):
         return f"{self.output_path=}, {self.language=}, {self.mic=}"
@@ -167,6 +168,8 @@ class AudioHandler:
                         print("Google Speech Recognition could not understand audio")
                     except sr.RequestError as e:
                         print("Could not request results from Google Speech Recognition service; {0}".format(e))
+                    except ValueError:
+                        print("audio is not like the pattern provided")
                     continue
 
     def get_inputs_command(self, text: str, timestamp: int) -> str:
@@ -238,6 +241,7 @@ class AudioHandler:
                 active = 0
 
         output = f"{epc}, {timestamp}, {location}, {moving}, {active}"
+        print(output)
         return output
 
     @staticmethod
@@ -249,6 +253,7 @@ class AudioHandler:
         """
         if wanted_mic is None:
             wanted_mic = 'Microphone Array (Realtek(R) Au'  # my computer default mic
+            # wanted_mic = 'Echo Cancelling Speakerphone (Yealink CP900 Audio)'  # my computer default mic
         mic_list = sr.Microphone.list_microphone_names()
         assert len(mic_list) != 0
         for i, microphone in enumerate(mic_list):

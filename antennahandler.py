@@ -8,6 +8,9 @@ import time
 import threading
 import re
 
+from datetime import datetime
+import time
+
 ANTENNA_PATH = "antenna_test.csv"
 SERIAL_COLUMNS = ["EPC", "Time", "ReadCount", "RSSI", "Antenna", "Frequency", "Phase"]
 
@@ -119,6 +122,8 @@ class AntennaHandler:
         words = raw.split(",")[:AntennaHandler.NUM_INPUTS]
         words = [word.split(":")[1] for word in words]
         words[1] = str(int(words[1]) + start_time)
+        if len(words[0]) != 8:
+            raise ValueError
         return words
 
     @staticmethod
@@ -129,7 +134,9 @@ class AntennaHandler:
         :return: the port name of the found device
         """
         list_ports = comports()
-        assert len(list_ports) != 0
+        if len(list_ports) == 0:
+            print("no serial port was connected. terminating.")
+            exit()
         for list_port in list_ports:
             if "Arduino" in list_port.manufacturer:
                 print(f"found an arduino device {list_port.description}")
@@ -137,17 +144,26 @@ class AntennaHandler:
 
         return list_ports[0].device
 
-    @staticmethod
-    def print_serial_port(port: str):
+    def print_serial_port(self, parse: bool = False):
         """
         print the given port as serial value indefinitely
         :param port:
         :return:
         """
-        ser = serial.Serial(port=port, baudrate=AntennaHandler.BAUDRATE)
+        ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
         while True:
-            raw = ser.read_until()
-            print(raw)
+            try:
+                raw = ser.read_until()
+                if parse:
+                    raw = self.parse_raw(raw=raw, start_time=self.start_time)
+                print(raw)
+                print(datetime.fromtimestamp(int(raw[1])))
+                now = int(time.time())
+                print(f"computer timestamp {now}")
+                print(datetime.fromtimestamp(int(now)))
+
+            except ValueError:
+                pass
 
 
 def create_antenna_thread(dir_path: str = None, timestamp_working: bool = True) -> AntennaThread:
