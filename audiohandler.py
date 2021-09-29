@@ -44,13 +44,14 @@ class AudioHandler:
     PROBLEMATIC_INPUT = "┬-problem-┬"
     TERMINATE_INPUT = "┬-terminating thread-┬\n"
 
-    def __init__(self, output_path: str, language: str = "en-US", mic: Optional[str] = None):
+    def __init__(self, output_path: str, language: str = "he", mic: Optional[str] = None):
         self.audio_blocks = OrderedDict()
         self.output_path = output_path
         self.r = sr.Recognizer()
         self.language = language
         self.mic = sr.Microphone(device_index=AudioHandler.find_microphone(wanted_mic=mic))
-        self.r.adjust_for_ambient_noise(self.mic)
+        with self.mic as source:
+            self.r.adjust_for_ambient_noise(source)
         self.running = True
 
     def __repr__(self):
@@ -137,7 +138,7 @@ class AudioHandler:
         header = AUDIO_COLUMNS
         path = self.output_path
 
-        dir_path, file_name, *_ = path.split('\\')
+        dir_path, file_name = path.rsplit('\\', 1)
         audio_text_only_path = f"audio_only_{file_name}"
         audio_text_only_path = os.path.join(dir_path, audio_text_only_path)
 
@@ -181,7 +182,7 @@ class AudioHandler:
         """
         if self.language == 'he':
             move_commands = ['בתנועה', 'הורם']
-            stop_commands = ['במנוחה', 'הונח']
+            stop_commands = ['במנוחה', 'הונח', 'מונח']
             area_commands = ['מעל', 'זז']
             activation_commands = ['אקטיבי', 'active']
             passive_commands = ['פאסיבי', 'פסיבי']

@@ -5,6 +5,7 @@ from model import Model
 import os
 import time
 from antennahandler import AntennaHandler
+from datetime import datetime
 
 
 def create_train_set_without_break(dir_path: str, using_antenna: bool):
@@ -28,7 +29,7 @@ def create_train_set_without_break(dir_path: str, using_antenna: bool):
     merge_inputs(dir_path=dir_path)
 
 
-def create_train_set_with_break(dir_path: str, using_antenna: bool = True):
+def create_train_set_with_break(dir_path: str, timestamp_working: bool = True):
     """
     creating a folder named "dir_path" containing 4 files:
     a csv file for audio, a csv file for the serial reading, a file contain all the recognized text for debugging
@@ -39,19 +40,22 @@ def create_train_set_with_break(dir_path: str, using_antenna: bool = True):
     :return: None
     """
     os.mkdir(dir_path)
-    keyboard_thread = KeyboardThread(dir_path, using_antenna=using_antenna)
+    keyboard_thread = KeyboardThread(dir_path, timestamp_working=timestamp_working)
     keyboard_thread.start()
     print("all is finished!")
 
 
 def main():
-    dir_path = f"test_sets/test_{int(time.time())}"
-    # dir_path = "test_sets/test_1632749063"
-    # merge_inputs(dir_path=dir_path)
-    # create_train_set_with_break(dir_path, using_antenna=True)
+    # dir_path = f"test_sets\\test_{int(time.time())}"
+    # create_train_set_with_break(dir_path, timestamp_working=True)
 
+    # dir_path = "test_sets\\test_1632923100"
+    # merge_inputs(dir_path)
+
+    dir_path = f"test_sets\\test_{int(time.time())}"
     a_h = create_antenna_thread(dir_path).antenna_handler
     a_h.print_serial_port(True)
+
     # path = "_test_dummy/merged.csv"
     # model = Model(uni_model_path="model.eh")
     # # model.train(path)

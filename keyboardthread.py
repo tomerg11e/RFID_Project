@@ -20,11 +20,11 @@ class KeyboardThread(threading.Thread):
     FINISHED_STATE = "finish state"
     STATE_HOT_KEY = 'ctrl+p'
 
-    def __init__(self, dir_path: str, using_antenna: bool = True):
+    def __init__(self, dir_path: str, timestamp_working: bool = True):
         super().__init__()
         self.dir_path = dir_path
         self.state = KeyboardThread.STARTING_STATE
-        self.antenna_thread = create_antenna_thread(dir_path=dir_path, timestamp_working=using_antenna)
+        self.antenna_thread = create_antenna_thread(dir_path=dir_path, timestamp_working=timestamp_working)
         self.audio_thread = create_audio_thread(dir_path=dir_path, recognize_while_streaming=False)
         self.set_keyboard_hotkeys()
 
@@ -50,8 +50,10 @@ class KeyboardThread(threading.Thread):
             self.audio_thread.recognize_saved_audio()
             # here we can refresh the project directory and see the new files, editing them if there are problems.
             # when finished we will again manually change self.state
-            print("the audio files are ready and can be changed manually if needed."
-                  f"the code will continue after pressing: {KeyboardThread.STATE_HOT_KEY} again.")
+            print("\t\t***\n"
+                  "the audio files are ready and can be changed manually if needed.\n"
+                  f"the code will continue after pressing: {KeyboardThread.STATE_HOT_KEY} again.\n"
+                  f"\t\t***")
 
         elif self.state == KeyboardThread.WAITING_STATE:
             # stop waiting, start merging the files for final training set
@@ -154,7 +156,7 @@ def merge_inputs(dir_path: str):
     with open(merged_path, 'a', encoding="utf-8") as merged_file:
         try:
             while True:
-                if float(audio_dict["Time"]) < float(antenna_dict["Time"]):
+                if float(audio_dict["Time"]) <= float(antenna_dict["Time"]):
                     update_epc_status()
                     audio_line, audio_dict = process_audio_line()
                 else:

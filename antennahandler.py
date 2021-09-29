@@ -25,7 +25,7 @@ class AntennaThread(threading.Thread):
         start_time = 0
         if not timestamp_working:
             start_time = int(time.time())
-        self.antenna_handler = AntennaHandler(output_path=output_path, port=port, start_time=start_time)
+        self.antenna_handler = AntennaHandler(output_path=output_path, port=port, timestamp_working=timestamp_working)
 
     def run(self) -> None:
         print(f"starting {self.name}, a {type(self)} thread. timestamp: {time.time()}")
@@ -34,6 +34,9 @@ class AntennaThread(threading.Thread):
 
     def stop(self):
         self.antenna_handler.running = False
+
+    def solve_time_desync(self):
+        self.antenna_handler.solve_time_desync()
 
     def __repr__(self):
         return super().__repr__() + f". With antenna handler {self.antenna_handler!r}"
@@ -44,13 +47,15 @@ class AntennaHandler:
     BAUDRATE = 115200
     NUM_INPUTS = len(SERIAL_COLUMNS)
 
-    def __init__(self, output_path: str, start_time: int = 0, port: Optional[str] = None):
+    def __init__(self, output_path: str, timestamp_working: bool = False, port: Optional[str] = None):
         if port is None:
             port = AntennaHandler.find_arduino_device()
         self.output_path = output_path
         self.port = port
         self.running = True
-        self.start_time = start_time
+        self.delay = 0
+        if not timestamp_working:
+            self.solve_time_desync()
 
     def save_to_file(self, buffer_size: int = 5):
         """
@@ -72,19 +77,19 @@ class AntennaHandler:
                 while i < buffer_size:
                     try:
                         raw = ser.read_until()
-                        inputs = AntennaHandler.parse_raw(raw, self.start_time)
+                        inputs = AntennaHandler.parse_raw(raw, self.delay)
                         output += ",".join(inputs) + "\n"
                         i += 1
                     except ValueError:
                         pass
-                # print(f"writing to {path}: {output}")
+                # print(f"writing to {path}:\n {output}")
                 file.write(output)
 
     def get_port_data(self, port: str):
         ser = serial.Serial(port=port, baudrate=AntennaHandler.BAUDRATE)
         while self.running:
             raw = ser.read_until()
-            inputs = AntennaHandler.parse_raw(raw, self.start_time)
+            inputs = AntennaHandler.parse_raw(raw, self.delay)
             yield ",".join(inputs) + "\n"
 
     @staticmethod
@@ -108,11 +113,11 @@ class AntennaHandler:
         return pd.DataFrame({SERIAL_COLUMNS[i]: matrix[i, :] for i in range(AntennaHandler.NUM_INPUTS)})
 
     @staticmethod
-    def parse_raw(raw: bytes, start_time: int = 0) -> List[str]:
+    def parse_raw(raw: bytes, delay: int = 0) -> List[str]:
         """
         parses the raw bytes input into str values
         :param raw:
-        :param start_time:
+        :param delay:
         :return:
         """
         raw = raw.decode('utf-8')
@@ -121,7 +126,7 @@ class AntennaHandler:
             raise ValueError
         words = raw.split(",")[:AntennaHandler.NUM_INPUTS]
         words = [word.split(":")[1] for word in words]
-        words[1] = str(int(words[1]) + start_time)
+        words[1] = str(int(words[1]) + delay)
         if len(words[0]) != 8:
             raise ValueError
         return words
@@ -147,23 +152,46 @@ class AntennaHandler:
     def print_serial_port(self, parse: bool = False):
         """
         print the given port as serial value indefinitely
+        :param parse:
         :param port:
         :return:
         """
+        print(f"connecting to port {self.port}")
         ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
+        print("connected")
         while True:
             try:
                 raw = ser.read_until()
-                if parse:
-                    raw = self.parse_raw(raw=raw, start_time=self.start_time)
                 print(raw)
-                print(datetime.fromtimestamp(int(raw[1])))
+                if parse:
+                    raw = self.parse_raw(raw=raw, delay=self.delay)
+                    input_timestamp = int(raw[1])
+                else:
+                    raw = raw.decode('utf-8')
+                    input_timestamp = int(raw.split(',')[1].split(':')[1])
+                print(f"input timestamp {input_timestamp}, {datetime.fromtimestamp(input_timestamp)}\n")
                 now = int(time.time())
-                print(f"computer timestamp {now}")
-                print(datetime.fromtimestamp(int(now)))
+                print(f"computer timestamp {now}, {datetime.fromtimestamp(int(now))}\n")
 
             except ValueError:
                 pass
+
+    def solve_time_desync(self):
+        print("solving desync...")
+        ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
+        time_deltas = []
+        while len(time_deltas) < 5:
+            try:
+                approx_time = int(time.time())
+                raw = ser.read_until()
+                raw = self.parse_raw(raw=raw, delay=self.delay)
+                input_timestamp = int(raw[1])
+                time_deltas.append(approx_time - input_timestamp)
+            except ValueError:
+                pass
+        time_delta = round(sum(time_deltas) / len(time_deltas))
+        print(f"found a {time_delta} sec delay")
+        self.delay = time_delta
 
 
 def create_antenna_thread(dir_path: str = None, timestamp_working: bool = True) -> AntennaThread:
