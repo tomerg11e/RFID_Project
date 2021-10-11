@@ -9,4 +9,5 @@ and now check with "hwclock" and "date" that the two are the same and the same a
 
 in etc/adjtime we can see the zero timestamp
 
-in active/bin there is ther file that responsible for the time updating called updatetime.sh 
+in active/bin there is ther file that responsible for the time updating called updatetime.sh
+systemctl status ntp.service
