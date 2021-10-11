@@ -7,4 +7,6 @@ now change the software time using the commend "ntpdate -u pool.ntp.org"
 now update the hardware time using the comment "hwclock -w"
 and now check with "hwclock" and "date" that the two are the same and the same as the real time
 
-UTC!
+in etc/adjtime we can see the zero timestamp
+
+in active/bin there is ther file that responsible for the time updating called updatetime.sh 
