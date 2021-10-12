@@ -53,13 +53,13 @@ def create_train_set_with_break(dir_path: Optional[str] = None, timestamp_workin
 def print_serial():
     temp_dir = f"temp_{int(time.time())}"
     a_h = create_antenna_thread(temp_dir).antenna_handler
-    a_h.print_serial_port(True)
+    a_h.print_pretty_serial()
     os.rmdir(temp_dir)
 
 
 def main():
     # print(datetime.fromtimestamp(1634026661))
-    create_train_set_with_break()
+    # create_train_set_with_break()
 
     print_serial()
 

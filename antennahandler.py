@@ -162,6 +162,7 @@ class AntennaHandler:
         while True:
             try:
                 raw = ser.read_until()
+                now = int(time.time())
                 print(raw)
                 if parse:
                     raw = self.parse_raw(raw=raw, delay=self.delay)
@@ -170,9 +171,22 @@ class AntennaHandler:
                     raw = raw.decode('utf-8')
                     input_timestamp = int(raw.split(',')[1].split(':')[1])
                 print(f"input timestamp {input_timestamp}, {datetime.fromtimestamp(input_timestamp)}\n")
-                now = int(time.time())
                 print(f"computer timestamp {now}, {datetime.fromtimestamp(int(now))}\n")
 
+            except ValueError:
+                pass
+
+    def print_pretty_serial(self):
+        print(f"connecting to port {self.port}")
+        ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
+        print("connected")
+        print("EPC, timestamp, date, RSSI, antenna, phase")
+        while True:
+            try:
+                raw = ser.read_until()
+                raw = self.parse_raw(raw=raw, delay=self.delay)
+                raw = [raw[0], raw[1], str(datetime.fromtimestamp(float(raw[1]))), raw[3], raw[4], raw[-1]]
+                print(raw)
             except ValueError:
                 pass
 
