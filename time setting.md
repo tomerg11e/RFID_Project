@@ -21,7 +21,7 @@ by finding the process id we can go into proc/PROCESS_ID/task/PROCESS_ID and see
 using the update-time.sh we can see that for updating the rtc with the wanted ntp we need three conditions:
 the ntp status need to be running
 the ntp_servers variable need to not be "" - taken from /tm/etc/tm.conf (the same as written in the web settings)
-the server_status variable need to not be "" - taken from the code, 1 only if we can connect using http to our ntp server **LAN problematic** mabye even just problematic...
+the server_status variable need to not be "" - taken from the old code, 1 only if we can connect using http to our ntp server **LAN problematic** mabye even just problematic...
 
 
 if [ "${ntp_servers}" ]; then
@@ -32,4 +32,4 @@ if [ "${ntp_servers}" ]; then
     rm -rf /tmp/foo
 fi
 
-
+now just trying to ping the ntp_server
