@@ -22,9 +22,9 @@ class AntennaThread(threading.Thread):
 
     def __init__(self, output_path: str, timestamp_working: bool, port: Optional[str] = None):
         super().__init__()
-        start_time = 0
-        if not timestamp_working:
-            start_time = int(time.time())
+        # start_time = 0
+        # if not timestamp_working:
+        #     start_time = int(time.time())
         self.antenna_handler = AntennaHandler(output_path=output_path, port=port, timestamp_working=timestamp_working)
 
     def run(self) -> None:
@@ -208,9 +208,11 @@ class AntennaHandler:
         self.delay = time_delta
 
 
-def create_antenna_thread(dir_path: str = None, timestamp_working: bool = True) -> AntennaThread:
+def create_antenna_thread(dir_path: str = None, timestamp_working: bool = True,
+                          use_exact_dir_name: bool = False) -> AntennaThread:
     """
     A function for creating a serial reading thread with the right starting values
+    :param use_exact_dir_name: determine if adding ANTENNA_PATH to output file path
     :param dir_path:
     :param timestamp_working: used for determine if to use the serial reader timestamp or to use the computer timestamp
     while using arduino device we want to use our computer timestamp
@@ -219,6 +221,8 @@ def create_antenna_thread(dir_path: str = None, timestamp_working: bool = True) 
     """
     path = ANTENNA_PATH
     if dir_path is not None:
-        path = os.path.join(dir_path, ANTENNA_PATH)
+        path = dir_path
+        if not use_exact_dir_name:
+            path = os.path.join(dir_path, ANTENNA_PATH)
     antenna_thread = AntennaThread(output_path=path, timestamp_working=timestamp_working)
     return antenna_thread
