@@ -183,7 +183,7 @@ class AudioHandler:
         if self.language == 'he':
             move_commands = ['בתנועה', 'הורם']
             stop_commands = ['במנוחה', 'הונח', 'מונח']
-            area_commands = ['מעל', 'זז']
+            area_commands = ['מעל', 'זז', 'על']
             activation_commands = ['אקטיבי', 'active']
             passive_commands = ['פאסיבי', 'פסיבי']
             terminate_words = ['עצור', 'צור']

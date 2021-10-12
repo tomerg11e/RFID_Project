@@ -5,6 +5,7 @@ import re
 import os
 import keyboard
 import threading
+from datetime import datetime
 
 MERGE_PATH = "merged.csv"
 
@@ -113,7 +114,8 @@ def merge_inputs(dir_path: str):
         epc_values_dict = epc_status.get(antenna_dict["EPC"], epc_starting_labels)
         labels_values = ",".join(epc_values_dict.values())
         antenna_values = ",".join(antenna_dict.values())
-        merged_file.write(f"{antenna_values},{labels_values}\n")
+        date = datetime.fromtimestamp(float(antenna_dict["Time"]))
+        merged_file.write(f"{antenna_values},{labels_values},{date}\n")
 
     def next_line(file_name) -> str:
         current_line = next(file_name)
@@ -146,6 +148,7 @@ def merge_inputs(dir_path: str):
         if label not in ["EPC", "Time"]:
             epc_starting_labels[label] = "0"
             merged_header.append(label)
+    merged_header.append("Date")
 
     if not os.path.exists(merged_path):
         with open(fr"{merged_path}", 'x') as file:

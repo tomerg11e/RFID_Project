@@ -7,6 +7,8 @@ import time
 from antennahandler import AntennaHandler
 from datetime import datetime
 
+DATA_FOLDER = "test_sets"
+
 
 def create_train_set_without_break(dir_path: str, using_antenna: bool):
     """
@@ -29,32 +31,40 @@ def create_train_set_without_break(dir_path: str, using_antenna: bool):
     merge_inputs(dir_path=dir_path)
 
 
-def create_train_set_with_break(dir_path: str, timestamp_working: bool = True):
+def create_train_set_with_break(dir_path, timestamp_working: bool = True):
     """
     creating a folder named "dir_path" containing 4 files:
     a csv file for audio, a csv file for the serial reading, a file contain all the recognized text for debugging
     and a csv file containing the merged input.
     This function is using the KeyboardThread class for manually changing the state of the program with a press
+    :param timestamp_working:
     :param dir_path: directory path name
-    :param using_antenna: True if using antenna, false otherwise (using arduino instead)
     :return: None
     """
+    if dir_path is None:
+        dir_path = os.path.join(DATA_FOLDER, f"test_{int(time.time())}")
     os.mkdir(dir_path)
     keyboard_thread = KeyboardThread(dir_path, timestamp_working=timestamp_working)
     keyboard_thread.start()
     print("all is finished!")
 
 
+def print_serial():
+    temp_dir = f"temp_{int(time.time())}"
+    a_h = create_antenna_thread(temp_dir).antenna_handler
+    a_h.print_serial_port(True)
+    os.rmdir(temp_dir)
+
+
 def main():
-    # dir_path = f"test_sets\\test_{int(time.time())}"
+    # print(datetime.fromtimestamp(1634026661))
+    # dir_path = None
     # create_train_set_with_break(dir_path, timestamp_working=True)
 
-    # dir_path = "test_sets\\test_1632923100"
-    # merge_inputs(dir_path)
+    print_serial()
 
-    dir_path = f"test_sets\\test_{int(time.time())}"
-    a_h = create_antenna_thread(dir_path).antenna_handler
-    a_h.print_serial_port(True)
+    # dir_path = "test_sets\\test_1634031186"
+    # merge_inputs(dir_path)
 
     # path = "_test_dummy/merged.csv"
     # model = Model(uni_model_path="model.eh")

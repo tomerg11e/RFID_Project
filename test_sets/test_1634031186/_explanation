@@ -1,0 +1,15 @@
+id 144
+
+stood still while location 0
+lay dawn while location 1
+stood still while location 2
+moved in little circles 3
+moved in bigger circles 4
+
+circles was made by moving myself, not moving my hands
+
+
+
+we can see that while not moving the RSSI is more or less the same.
+Unfortunately, this observation is showing that we cannot really understand if lower RSSI is due to distance from the
+antenna or just bad signal- can be seen clearly with the laying down bottle that decrees the RSSI read by a lot.
