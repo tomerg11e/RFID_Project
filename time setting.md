@@ -14,3 +14,5 @@ in active/bin there is ther file that responsible for the time updating called u
 usful commands:
 systemctl status ntp.service for seeing the ntp status
 ntpq -p for seeing all the ntp connections
+going into the proc folder gives you an idea for the status of the threads and deamons currently running n the system.
+by finding the process id we can go into proc/PROCESS_ID/task/PROCESS_ID and see the second line of the status file.
