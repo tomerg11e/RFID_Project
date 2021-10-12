@@ -4,6 +4,7 @@ from keyboardthread import KeyboardThread, merge_inputs
 from model import Model
 import os
 import time
+from typing import Optional
 from antennahandler import AntennaHandler
 from datetime import datetime
 
@@ -31,7 +32,7 @@ def create_train_set_without_break(dir_path: str, using_antenna: bool):
     merge_inputs(dir_path=dir_path)
 
 
-def create_train_set_with_break(dir_path, timestamp_working: bool = True):
+def create_train_set_with_break(dir_path: Optional[str] = None, timestamp_working: Optional[bool] = True):
     """
     creating a folder named "dir_path" containing 4 files:
     a csv file for audio, a csv file for the serial reading, a file contain all the recognized text for debugging
@@ -58,8 +59,7 @@ def print_serial():
 
 def main():
     # print(datetime.fromtimestamp(1634026661))
-    # dir_path = None
-    # create_train_set_with_break(dir_path, timestamp_working=True)
+    create_train_set_with_break()
 
     print_serial()
 
