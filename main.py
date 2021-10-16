@@ -80,9 +80,9 @@ def print_serial():
 def main():
     # create_lab_train_set_with_break()
 
-    # print_serial()
+    print_serial()
 
-    create_train_set_from_serial_only()
+    # create_train_set_from_serial_only()
 
     # dir_path = "test_sets\\test_1634031186"
     # merge_inputs(dir_path)
@@ -94,7 +94,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # print(datetime.fromtimestamp(1634026661))
+    # print(datetime.fromtimestamp(1634120074))
     main()
     # python -m serial.tools.list_ports
 
