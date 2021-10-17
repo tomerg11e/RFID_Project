@@ -143,7 +143,7 @@ class AntennaHandler:
             print("no serial port was connected. terminating.")
             exit()
         for list_port in list_ports:
-            if "Arduino" in list_port.manufacturer:
+            if "A0-0319BBBK06A2" == list_port.serial_number or "ENTER_SECOND_IZAR" == list_port.serial_number:
                 print(f"found an arduino device {list_port.description}")
                 return list_port.device
 
@@ -225,4 +225,5 @@ def create_antenna_thread(dir_path: str = None, timestamp_working: bool = True,
         if not use_exact_dir_name:
             path = os.path.join(dir_path, ANTENNA_PATH)
     antenna_thread = AntennaThread(output_path=path, timestamp_working=timestamp_working)
+    antenna_thread.daemon = True
     return antenna_thread

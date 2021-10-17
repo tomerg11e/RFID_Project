@@ -67,6 +67,7 @@ def create_train_set_from_serial_only(dir_path: Optional[str] = None, timestamp_
     dir_path = dir_handler(dir_path, parent_path=DATA_FOLDER, path_is_dir=False)
     antenna_thread = create_antenna_thread(dir_path, timestamp_working=timestamp_working, use_exact_dir_name=True)
     antenna_thread.start()
+    return antenna_thread
 
 
 def print_serial():
@@ -81,7 +82,14 @@ def main():
 
     # print_serial()
 
-    create_train_set_from_serial_only()
+    antenna = create_train_set_from_serial_only()
+    try:
+        while True:
+            time.sleep(2)
+            
+    except KeyboardInterrupt:
+        antenna.stop()
+        print("stopped recording")
 
     # dir_path = "test_sets\\test_1634031186"
     # merge_inputs(dir_path)
