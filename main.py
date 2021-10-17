@@ -2,7 +2,6 @@ from antennahandler import create_antenna_thread
 from audiohandler import create_audio_thread
 from keyboardthread import KeyboardThread, merge_inputs
 from antennahandler import AntennaHandler
-from model import Model
 from typing import Optional
 from datetime import datetime
 import os
@@ -80,22 +79,15 @@ def print_serial():
 def main():
     # create_lab_train_set_with_break()
 
-    print_serial()
+    # print_serial()
 
-    # create_train_set_from_serial_only()
+    create_train_set_from_serial_only()
 
     # dir_path = "test_sets\\test_1634031186"
     # merge_inputs(dir_path)
-
-    # path = "_test_dummy/merged.csv"
-    # model = Model(uni_model_path="model.eh")
-    # # model.train(path)
-    # model.predict_stream(port=AntennaHandler.find_arduino_device())
 
 
 if __name__ == '__main__':
     # print(datetime.fromtimestamp(1634120074))
     main()
     # python -m serial.tools.list_ports
-
-
