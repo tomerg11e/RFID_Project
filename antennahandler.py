@@ -65,6 +65,7 @@ class AntennaHandler:
         """
         ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
         header = SERIAL_COLUMNS
+        header.append("Date")
         path = self.output_path
         if not os.path.exists(path):
             with open(fr"{path}", 'x') as file:
@@ -78,6 +79,7 @@ class AntennaHandler:
                     try:
                         raw = ser.read_until()
                         inputs = AntennaHandler.parse_raw(raw, self.delay)
+                        inputs.append(str(datetime.fromtimestamp(float(inputs[1]))))
                         output += ",".join(inputs) + "\n"
                         i += 1
                     except ValueError:
@@ -143,7 +145,7 @@ class AntennaHandler:
             print("no serial port was connected. terminating.")
             exit()
         for list_port in list_ports:
-            if "A0-0319BBBK06A2" == list_port.serial_number or "ENTER_SECOND_IZAR" == list_port.serial_number:
+            if "A0-0319BBBK06A2" == list_port.serial_number or "C0-1718BBBK05F3" == list_port.serial_number:
                 print(f"found an arduino device {list_port.description}")
                 return list_port.device
 
