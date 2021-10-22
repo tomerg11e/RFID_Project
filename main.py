@@ -86,7 +86,7 @@ def main():
     try:
         while True:
             time.sleep(2)
-            
+
     except KeyboardInterrupt:
         antenna.stop()
         print("stopped recording")

@@ -66,6 +66,7 @@ class AntennaHandler:
         ser = serial.Serial(port=self.port, baudrate=AntennaHandler.BAUDRATE)
         header = SERIAL_COLUMNS
         header.append("Date")
+        header.append("Computer Date")
         path = self.output_path
         if not os.path.exists(path):
             with open(fr"{path}", 'x') as file:
@@ -78,13 +79,15 @@ class AntennaHandler:
                 while i < buffer_size:
                     try:
                         raw = ser.read_until()
+                        computer_now = datetime.now()
                         inputs = AntennaHandler.parse_raw(raw, self.delay)
                         inputs.append(str(datetime.fromtimestamp(float(inputs[1]))))
+                        inputs.append(str(computer_now))
                         output += ",".join(inputs) + "\n"
                         i += 1
                     except ValueError:
                         pass
-                # print(f"writing to {path}:\n {output}")
+                print(f"writing to {path}:\n {output}")
                 file.write(output)
 
     def get_port_data(self, port: str):
