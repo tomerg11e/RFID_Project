@@ -6,6 +6,29 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
+from typing import Optional, Tuple
+import seaborn as sns
+
+SYRINGES_GROUP = 'syringes'
+BREATHING_GROUP = 'breathing'
+MEDICATION_GROUP = 'medication'
+
+
+def epc_range_classes(group: str, df: Optional[pd.DataFrame] = None):
+    epc_range = (30303030, 39393939)
+    epc = 0
+    if group == SYRINGES_GROUP:
+        epc_range = (30303730, 30303939)
+    elif group == BREATHING_GROUP:
+        epc_range = (30303030, 30303139)
+        epc = 30303234
+    elif group == MEDICATION_GROUP:
+        epc_range = (30313030, 39393939)
+        epc = 30303230
+    if df is not None:
+        return df[df["EPC"].astype(int).between(left=epc_range[0], right=epc_range[1]) | df["EPC"].astype(int) == epc]
+    else:
+        return epc_range
 
 
 def fixing_jump_de_syncs(input_dir_path, output_dir_path):
@@ -63,9 +86,7 @@ def fixing_jump_de_syncs(input_dir_path, output_dir_path):
                         values = line.split(',')
 
 
-def save_sync_groups_only(input_dir_path, output_dir_path):
-    NO_SIGNAL_OK_COOLDOWN = 10
-
+def check_de_sync_groups(df: pd.DataFrame, print_bool=True, no_signal_ok_cooldown=10):
     def try_int(x):
         try:
             return int(x)
@@ -74,51 +95,52 @@ def save_sync_groups_only(input_dir_path, output_dir_path):
 
     def try_date(x):
         try:
-            datetime.strptime(file_name, "%Y_%m_%d_%H_%M_%S")
+            datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
             return True
         except ValueError:
             return False
 
-    def check_desync_groups(df: pd.DataFrame, print_bool=True):
-        df["delta_Time"] = df["Time"].apply(try_int) - df["Time"].shift(-1).apply(try_int)
-        q1 = df["delta_Time"].quantile(0.25)
-        q3 = df["delta_Time"].quantile(0.75)
-        iqr = q3 - q1
-        lower_bound = min(-NO_SIGNAL_OK_COOLDOWN, q1 - 1.5 * iqr)
-        upper_bound = min(0, q3 + 1.5 * iqr)
-        outliers_low = (df["delta_Time"] < lower_bound)
-        outliers_high = (df["delta_Time"] > upper_bound)
-        nans = (df["delta_Time"][:-1].isna())
-        delta_time_issues = df["delta_Time"][outliers_low | outliers_high | nans]
-        if print_bool:
-            print(f"problematic rows by delta time with bounds of: {lower_bound=}, {upper_bound=}")
-            print(delta_time_issues)
-            print(f"size of original df {df.shape}")
+    df["delta_Time"] = df["Time"].apply(try_int) - df["Time"].shift(-1).apply(try_int)
+    q1 = df["delta_Time"].quantile(0.25)
+    q3 = df["delta_Time"].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = min(-no_signal_ok_cooldown, q1 - 1.5 * iqr)
+    upper_bound = min(0, q3 + 1.5 * iqr)
+    outliers_low = (df["delta_Time"] < lower_bound)
+    outliers_high = (df["delta_Time"] > upper_bound)
+    nans = (df["delta_Time"][:-1].isna())
+    delta_time_issues = df["delta_Time"][outliers_low | outliers_high | nans]
+    if print_bool:
+        print(f"problematic rows by delta time with bounds of: {lower_bound=}, {upper_bound=}")
+        print(delta_time_issues)
+        print(f"size of original df {df.shape}")
 
-        good_epc = df["EPC"].str.contains(r'^(?:3\d){4}$')
-        good_time = df["Time"].str.contains(r'^\d{10}$')
-        # TODO: understand why are we getting more then one readCount. need to be as follows:
-        # good_read_count = df["ReadCount"].str.contains(r'^1$')
-        good_read_count = df["ReadCount"].str.contains(r'^\d$')
-        good_rssi = df["RSSI"].apply(try_int).between(-100, 0)
-        good_antenna = df["Antenna"].str.contains(r'^(?:1|2)$')
-        good_frequency = (df["Frequency"].str.contains(r'^\d{6}$'))
-        good_phase = df["Phase"].apply(try_int).between(0, 180)
-        good_date = (df["Date"].apply(try_date))
-        good_rows = good_epc & good_time & good_read_count & good_rssi \
-                    & good_antenna & good_frequency & good_phase & good_date
-        issues = df[~good_rows]
-        if print_bool:
-            print(f"problematic indexes by regex:\n{issues}")
+    good_epc = df["EPC"].str.contains(r'^(?:3\d){4}$')
+    good_time = df["Time"].str.contains(r'^\d{10}$')
+    # TODO: understand why are we getting more then one readCount. need to be as follows:
+    # good_read_count = df["ReadCount"].str.contains(r'^1$')
+    good_read_count = df["ReadCount"].str.contains(r'^\d$')
+    good_rssi = df["RSSI"].apply(try_int).between(-100, 0)
+    good_antenna = df["Antenna"].str.contains(r'^(?:1|2)$')
+    good_frequency = (df["Frequency"].str.contains(r'^\d{6}$'))
+    good_phase = df["Phase"].apply(try_int).between(0, 180)
+    good_date = (df["Date"].apply(try_date))
+    good_rows = good_epc & good_time & good_read_count & good_rssi & good_antenna \
+                & good_frequency & good_phase & good_date
+    issues = df[~good_rows]
+    if print_bool:
+        print(f"problematic indexes by regex:\n{issues}")
 
-        df["problematic_index"] = (outliers_low | outliers_high | nans | ~good_rows)
-        # df.to_csv(path_or_buf=output_file, header=True, index=False)
-        problematic_indexes = df[df["problematic_index"]].index
-        df['group'] = df['problematic_index'].ne(df['problematic_index'].shift()).cumsum()
-        df["group"] = (df["group"] - 1) // 2
-        df.drop('problematic_index', axis=1, inplace=True)
-        return df, problematic_indexes
+    df["problematic_index"] = (outliers_low | outliers_high | nans | ~good_rows)
+    # df.to_csv(path_or_buf=output_file, header=True, index=False)
+    problematic_indexes = df[df["problematic_index"]].index
+    df['group'] = df['problematic_index'].ne(df['problematic_index'].shift()).cumsum()
+    df["group"] = (df["group"] - 1) // 2
+    df.drop('problematic_index', axis=1, inplace=True)
+    return df, problematic_indexes
 
+
+def save_sync_groups_only(input_dir_path, output_dir_path):
     antenna_time_multipliers = []  # contains tuples of antenna time diff and real time diff
     for file_name in os.listdir(input_dir_path):
 
@@ -126,7 +148,7 @@ def save_sync_groups_only(input_dir_path, output_dir_path):
         df = pd.read_csv(filepath_or_buffer=os.path.join(input_dir_path, file_name), index_col=False, dtype=str)
         if "Computer Date" in df:
             df.rename(columns={"Computer Date": "computer date"}, inplace=True)
-        df, problematic_indexes = check_desync_groups(df, True)
+        df, problematic_indexes = check_de_sync_groups(df, True)
         sync_groups = df.groupby('group')
         if "computer date" not in df:
             group = pd.DataFrame()
@@ -167,27 +189,7 @@ def save_sync_groups_only(input_dir_path, output_dir_path):
     print("Done")
 
 
-def plot(input_dir_path):
-    for file_name in os.listdir(input_dir_path):
-        print(f"\n\nworking on {file_name}")
-        df = pd.read_csv(filepath_or_buffer=os.path.join(input_dir_path, file_name), dtype=str)
-        df = df[["EPC", "Date", "Antenna"]]
-        min_freq = max(int(df.shape[0] ** 0.5), 2)
-        print(f"df size: {df.shape[0]}, showing EPC with freq greater then {min_freq}")
-        epc = df[['EPC']]
-        df = df[epc.replace(epc.apply(pd.Series.value_counts)).gt(min_freq).all(1)]
-        df = df.astype({'Date': 'datetime64[ns]'})
-        colormap = {1: 'red', 2: 'blue'}
-        df["Color"] = df["Antenna"].apply(lambda x: colormap.get(int(x), 'red'))
-        #TODO: dinf why nones is 8:46:42
-        df.plot.scatter(x="Date", y="EPC", title=file_name, alpha=0.3, figsize=(10, 4), color=df.Color)
-        plt.gca().xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
-        plt.xlabel("Time")
-        plt.tight_layout()
-        plt.show()
-
-
-def plot_epc_statistics(input_dir_path):
+def plot_epc_statistics(input_dir_path, epc_range: Optional[str] = None):
     def create_merged_df(input_dir_path):
         merged_df = pd.DataFrame()
         for file_name in os.listdir(input_dir_path):
@@ -197,9 +199,9 @@ def plot_epc_statistics(input_dir_path):
             round_df = round_df[["EPC", "Time", "Antenna"]]
             round_df["File"] = file_name
             print(f"{round_df.shape=}")
-            if round_df.shape[0] < 500:
-                print("next!")
-                continue
+            # if round_df.shape[0] < 500:
+            #     print("next!")
+            #     continue
             min_time = int(round_df.iloc[0]["Time"])
             max_time = int(round_df.iloc[-1]["Time"])
             round_df["Time"] = (round_df["Time"].apply(pd.to_numeric) - min_time) / (max_time - min_time)
@@ -210,7 +212,8 @@ def plot_epc_statistics(input_dir_path):
         return merged_df
 
     merged_df = create_merged_df(input_dir_path)
-
+    if epc_range is not None:
+        merged_df = epc_range_classes(epc_range, merged_df)
     # creating counter_file df
     c_df = pd.pivot_table(merged_df, values='Antenna', index='File', columns='EPC', fill_value=0, aggfunc=len)
 
@@ -243,8 +246,8 @@ def plot_epc_statistics(input_dir_path):
     merged_df.loc[:, "color"] = merged_df["Antenna"].apply(lambda x: colormap.get(int(x), 'red'))
     # plotting
     merged_name = input_dir_path.split('\\')[1]
-    ax = merged_df.plot(x="Time", y="EPC", kind='scatter', alpha=0.2, marker="o")
-    time_w_df.plot(x="Time", y="EPC", kind='scatter', alpha=0.3, marker="s", color='red', ax=ax)
+    ax = merged_df.plot(x="Time", y="EPC", kind='scatter', alpha=0.2, marker="o", color='green')
+    time_w_df.plot(x="Time", y="EPC", kind='scatter', alpha=0.3, marker="s", color='orange', ax=ax)
     plt.title(f"{merged_name} Time Filtered")
     plt.show()
 
@@ -254,15 +257,169 @@ def plot_epc_statistics(input_dir_path):
     plt.show()
 
 
+def plot_antenna_df(df: pd.DataFrame, title: str = 'Antenna_view', show: bool = True, ax: plt.Axes = None,
+                    antenna: Optional[int] = None,
+                    min_freq: Optional[int] = None):
+    if not min_freq:
+        min_freq = max(int(df.shape[0] ** 0.5), 2)
+    if antenna is not None:
+        df = df[df['Antenna'] == antenna]
+
+    def try_int(x):
+        try:
+            output = int(x)
+        except ValueError:
+            if '1' in x:
+                output = 1
+            elif '2' in x:
+                output = 2
+            else:
+                output = 2
+        return output
+
+    print(f"df size: {df.shape[0]}, showing EPC with freq greater then {min_freq}")
+    epc = df[['EPC']]
+    df = df[epc.replace(epc.apply(pd.Series.value_counts)).gt(min_freq - 1).all(1)]
+    df = df.astype({'Date': 'datetime64[ns]'})
+    colormap = {1: 'red', 2: 'blue'}
+    df["Color"] = df["Antenna"].apply(lambda x: colormap.get(try_int(x), 'red'))
+    df["order"] = df["EPC"].apply(lambda x: int(x))
+    df.sort_values(by=['order'], inplace=True)
+    ax = df.plot.scatter(x="Date", y="EPC", alpha=0.3, color=df.Color, ax=ax, s=4 * SIZE_SCALING)
+    # ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+    ax.set_xlabel("Time")
+    ax.set_title(title)
+    if show:
+        plt.show()
+    else:
+        return ax
+
+
+def plot_antenna_file(file_path, show: bool = True, ax: plt.Axes = None, antenna: Optional[str] = None,
+                      min_freq: Optional[int] = None):
+    print(f"\n\nworking on {file_path}")
+    df = pd.read_csv(filepath_or_buffer=file_path, dtype=str)
+    df = df[["EPC", "Time", "Date", "Antenna"]]
+    if antenna is not None:
+        df = df[df['Antenna'] == antenna]
+    try:
+        file_path = file_path.split('\\')[1]
+    except IndexError:
+        file_path = file_path.split('/')[-1]
+    title = f"Antenna_view_{file_path}"
+    return plot_antenna_df(df, title, show, ax, antenna, min_freq)
+
+
+def plot_rssi_df(df: pd.DataFrame, title: str = 'RSSI_std', show: bool = True, ax: plt.Axes = None, antenna=1):
+    df = df[df["Antenna"] == antenna].copy()
+    df.loc[:, "w_RSSI"] = df["RSSI"].rolling(5, center=True).std()
+    df["order"] = df["EPC"].apply(lambda x: int(x))
+    df.sort_values(by=['order'], inplace=True)
+    y_column = 'EPC'
+    if "Tool_name" in df.columns:
+        y_column = 'Tool_name'
+    ax = sns.scatterplot(x='Date', y=y_column, hue='w_RSSI',
+                         data=df, legend=False, ax=ax, s=4 * SIZE_SCALING)
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+    ax.set_xlabel("Time")
+    ax.set_title(title)
+    if show:
+        plt.show()
+    else:
+        return ax
+
+
+def plot_rssi_file(file_path, show: bool = True, ax: plt.Axes = None, antenna=2):
+    print(f"\nworking on {file_path}")
+    df = pd.read_csv(filepath_or_buffer=file_path, dtype=str)[["EPC", "Time", "Date", "Antenna", "RSSI"]]
+    df = df.astype({'Date': 'datetime64', 'RSSI': 'int', 'Antenna': 'int', 'Time': 'int'})
+    file_path = file_path.split('\\')[1]
+    title = f"RSSI_std_{file_path}"
+    return plot_rssi_df(df, title, show, ax, antenna)
+
+
+SIZE_SCALING = 10
+
+
+def run_plotting_dir(input_dir_path):
+    problematic_files = []
+    for file_name in os.listdir(input_dir_path):
+        file_path = os.path.join(input_dir_path, file_name)
+        df = pd.read_csv(filepath_or_buffer=file_path, dtype=str)
+        df, problematic_indexes = check_de_sync_groups(df)
+        df.drop(problematic_indexes, axis=0, inplace=True)
+        df = df[["EPC", "Time", "Date", "Antenna", "RSSI", "group"]].astype(
+            {'EPC': 'str', 'Time': 'int', 'Date': 'datetime64', 'Antenna': 'int', 'RSSI': 'int', 'group': 'str'})
+        df.sort_values(by=["EPC", "Time"], ignore_index=True, inplace=True)
+        try:
+            f, (ax1, ax3) = plt.subplots(2, 1, sharex='all', figsize=(2 * SIZE_SCALING, 1 * SIZE_SCALING))
+            plot_antenna_df(df, show=False, ax=ax1, min_freq=1, antenna=1)
+            # sns.scatterplot(x='Date', y='EPC', hue='group', style='group',
+            #                 data=df, legend=False, ax=ax1, s=4 * SIZE_SCALING)
+            plot_rssi_df(df, show=False, ax=ax3)
+            fig_title = file_path.replace('\\', '_')
+            plt.suptitle(fig_title)
+            plt.savefig(f"plots/_1_{fig_title}.png")
+            # plt.show()
+        except ValueError:
+            problematic_files.append(file_path)
+    return problematic_files
+
+
 def main():
-    dir_path = "new_bob_22_10"
-    input_dir_path = os.path.join("lab_unlabeled", dir_path)
-    output_dir_path = os.path.join("lab_testing", dir_path)
-    save_sync_groups_only(input_dir_path, output_dir_path)
-    plot(output_dir_path)
+    # dirs = ["axis_bob_21_10", "axis_bob_22_10", "new_bob_21_10", "new_bob_22_10"]
+    # all_problematic_files = []
+    # for dir_path in dirs:
+    #     # dir_path = "new_bob_21_10"
+    #     input_dir_path = os.path.join("lab_unlabeled", dir_path)
+    #     problematic_files = run_plotting_dir(input_dir_path)
+    #     all_problematic_files = all_problematic_files + problematic_files
+    # print(all_problematic_files)
+    output_dir_path = os.path.join("lab_testing", "axis_bob_21_10")
+    # save_sync_groups_only(input_dir_path, output_dir_path)
+    plot_antenna_file(os.path.join(output_dir_path, "2021_10_21_16_51_41"), min_freq=1)
+    plot_antenna_file(os.path.join(output_dir_path, "2021_10_21_16_51_41"), antenna='1', min_freq=1)
+    plot_rssi_file(os.path.join(output_dir_path, "2021_10_21_16_51_41"), antenna=1)
 
-    plot_epc_statistics(output_dir_path)
+    # plot_epc_statistics(output_dir_path, epc_range=None)
 
+
+problematic_files_to_plot = ['lab_unlabeled\\axis_bob_21_10\\2021_10_21_09_10_58',
+                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_09_59_02',
+                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_11_27_40',
+                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_12_29_14',
+                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_14_03_25',
+                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_14_39_32',
+                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_15_22_05',
+                             'lab_unlabeled\\axis_bob_22_10\\2021_10_22_09_58_46',
+                             'lab_unlabeled\\axis_bob_22_10\\2021_10_22_10_25_01',
+                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_26_29',
+                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_43_11',
+                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_29_53',
+                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_38_52',
+                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_52_27']
+
+after_changes = ['lab_unlabeled\\new_bob_21_10\\2021_10_21_09_55_05',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_09_55_31',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_10_26_19',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_10_49_08',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_11_04_13',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_11_39_53',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_11_45_10',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_13_21_08',
+                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_14_43_05',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_10_10',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_26_29',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_43_11',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_10_01_01',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_10_26_47',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_10_46_17',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_07_50',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_29_53',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_57_42',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_17_45',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_38_52',
+                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_52_27']
 
 if __name__ == '__main__':
     main()
