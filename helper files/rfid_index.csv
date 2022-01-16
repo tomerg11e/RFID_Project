@@ -1,0 +1,76 @@
+Name,EPC,Group
+Ambu Adult,30303031,mask
+Ambu Adult Mask (Num 4 / Num 5),30303032,mask
+Ambu Mask Num 3,30303033,mask
+Adult Oxygen Mask with Reserve,30303034,mask
+Adult Oxygen Mask,30303035,mask
+Plastic Tube 7 up,30303130,breathing
+Plastic Tube 7 down,30303131,breathing
+Plastic Tube 7.5 up,30303132,breathing
+Plastic Tube 7.5 down,30303133,breathing
+Plastic Tube 8 up,30303134,breathing
+Plastic Tube 8 down,30303135,breathing
+CO2 tube,30303136,_
+Air Way Size 3 (green),30303137,airway
+Air Way Size 4 (orange / yellow),30303138,airway
+Air Way Size 5 (red),30303139,airway
+Glocuse Solution 0.9% 500ml,30303230,medication
+Spine Board,30303231,board
+Viral Filter for Adult,30303232
+Laryngeal Mask Airway,30303234,mask
+Cone Syringe0 (50 cc),30303630,syringes
+Cone Syringe1 (50 cc),30303631,syringes
+Cone Syringe2 (50 cc),30303632,syringes
+Cone Syringe3 (50 cc),30303633,syringes
+Cone Syringe4 (50 cc),30303634,syringes
+Cone Syringe5 (50 cc),30303635,syringes
+Cone Syringe6 (50 cc),30303636,syringes
+Cone Syringe7 (50 cc),30303637,syringes
+Cone Syringe8 (50 cc),30303638,syringes
+Cone Syringe9 (50 cc),30303639,syringes
+Cone Syringe0 (20 cc),30303730,syringes
+Cone Syringe1 (20 cc),30303731,syringes
+Cone Syringe2 (20 cc),30303732,syringes
+Cone Syringe3 (20 cc),30303733,syringes
+Cone Syringe4 (20 cc),30303734,syringes
+Cone Syringe5 (20 cc),30303735,syringes
+Cone Syringe6 (20 cc),30303736,syringes
+Cone Syringe7 (20 cc),30303737,syringes
+Cone Syringe8 (20 cc),30303738,syringes
+Cone Syringe9 (20 cc),30303739,syringes
+Cone Syringe0 (10 cc),30303830,syringes
+Cone Syringe1 (10 cc),30303831,syringes
+Cone Syringe2 (10 cc),30303832,syringes
+Cone Syringe3 (10 cc),30303833,syringes
+Cone Syringe4 (10 cc),30303834,syringes
+Cone Syringe5 (10 cc),30303835,syringes
+Cone Syringe6 (10 cc),30303836,syringes
+Cone Syringe7 (10 cc),30303837,syringes
+Cone Syringe8 (10 cc),30303838,syringes
+Cone Syringe9 (10 cc),30303839,syringes
+Cone Syringe0 (5 cc),30303930,syringes
+Cone Syringe1 (5 cc),30303931,syringes
+Cone Syringe2 (5 cc),30303932,syringes
+Cone Syringe3 (5 cc),30303933,syringes
+Cone Syringe4 (5 cc),30303934,syringes
+Cone Syringe5 (5 cc),30303935,syringes
+Cone Syringe6 (5 cc),30303936,syringes
+Cone Syringe7 (5 cc),30303937,syringes
+Cone Syringe8 (5 cc),30303938,syringes
+Cone Syringe9 (5 cc),30303939,syringes
+Adrenaline 1mg/mL,30313030,medication
+Sodium Bicarbonate 8.4%,30313031,medication
+Lidocaine Hcl 2%,30313032,medication
+Glucose 50% / 20%,30313033,medication
+NaCl 0.9% 10 mL,30313034,medication
+Amiodarone 150mg/3mL,30313035,medication
+Dopamine 200mg/5mL,30313036,medication
+Naloxone 0.4mg/mL,30313037,medication
+Magnesium Sulfate 50%,30313038,medication
+Atropine 1mg/mL,30313039,medication
+Midazolam 5mg/5mL,30313130,medication
+Clacium Gluconate 10%,30313131,medication
+Fusid 20mg,30313132,medication
+Ventolin,30313133,medication
+Neostigmine,30313134,medication
+Bridion,30313135,medication

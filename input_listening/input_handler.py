@@ -1,15 +1,15 @@
-from antennahandler import create_antenna_thread
-from audiohandler import create_audio_thread
-from keyboardthread import KeyboardThread, merge_inputs
-from antennahandler import AntennaHandler
+from __antennahandler import create_antenna_thread
+from __audiohandler import create_audio_thread
+from __keyboardthread import KeyboardThread, merge_inputs
 from typing import Optional
 from datetime import datetime
 import os
 import time
 import re
 
+DATA_FOLDER = "input_files"
+# usable when using earphone for labeling
 LAB_AUDIO_LABELED_DIR = "lab_audio_labeled"
-DATA_FOLDER = "lab_unlabeled"
 
 
 def dir_handler(path: str, parent_path: Optional[str] = None, path_is_dir: bool = True) -> str:
@@ -78,24 +78,15 @@ def print_serial():
 
 
 def main():
-    # create_lab_train_set_with_break()
-
-    # print_serial()
-
     antenna = create_train_set_from_serial_only()
     try:
         while True:
             time.sleep(2)
-
     except KeyboardInterrupt:
         antenna.stop()
         print("stopped recording")
 
-    # dir_path = "test_sets\\test_1634031186"
-    # merge_inputs(dir_path)
-
 
 if __name__ == '__main__':
-    # print(datetime.fromtimestamp(1634120074))
     main()
     # python -m serial.tools.list_ports

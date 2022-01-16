@@ -1,16 +1,20 @@
+import argparse
+
 import cv2
-from pathlib import Path
 import math
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from preprocess import plot_antenna_df, check_de_sync_groups, plot_rssi_file, plot_rssi_df
-from typing import Optional, Tuple
+from df_utils import filter_df, plot_line_rssi_df, check_de_sync_groups, TOOL_GROUPS_NUM
+from typing import Optional, Iterable
 import os
 import ffmpeg
+
+VIDEOS_OUTPUT_DIR = "output_videos"
+CSV_INPUT_DIR = "input_files"
 
 
 def create_rfid_index():
@@ -91,23 +95,22 @@ def show_plot(file):
     plt.show()
 
 
-def preprocess_antenna_file(file_path, ax: plt.Axes, starting_time: Optional[float] = None,
+def preprocess_antenna_file(file_path, axes: Iterable[plt.Axes], starting_time: Optional[float] = None,
                             ending_time: Optional[float] = None, antenna: Optional[int] = None,
                             computer_date: bool = True):
     df = pd.read_csv(filepath_or_buffer=file_path, dtype=str)
     rfid_index = pd.read_csv(filepath_or_buffer="helper files/rfid_index.csv", dtype=str).to_dict(orient='list')
-    epc_2_name = dict(list(zip(rfid_index['epc'], rfid_index['name'])))
+    epc_2_name = dict(list(zip(rfid_index['EPC'], rfid_index['Name'])))
     df, problematic_indexes = check_de_sync_groups(df)
     df.drop(problematic_indexes, axis=0, inplace=True)
-    columns = df.columns.values
-    computer_column = [i for i in columns if 'omputer' in i]
+    computer_column = [i for i in df.columns.values if 'omputer' in i]
     if len(computer_column) > 0:
         df.rename(columns={computer_column[0]: 'Computer_date'}, inplace=True)
     else:
         df['Computer_date'] = df['Date']
-    df = df[["EPC", "Time", "Date", "Antenna", "RSSI", "Computer_date"]].astype(
+    df = df[["EPC", "Time", "Date", "Antenna", "RSSI", "Computer_date", "group"]].astype(
         {'EPC': str, 'Time': 'int', 'Date': 'datetime64', 'Antenna': 'int', 'RSSI': 'int',
-         'Computer_date': 'datetime64'})
+         'Computer_date': 'datetime64', 'group': 'int'})
 
     if not starting_time:
         starting_time = df["Time"].min()
@@ -120,14 +123,19 @@ def preprocess_antenna_file(file_path, ax: plt.Axes, starting_time: Optional[flo
         df['Date'] = df['Computer_date']
     df.drop('Computer_date', axis=1, inplace=True)
     df["Tool_name"] = df["EPC"].map(epc_2_name)
-    # ax = plot_antenna_df(df=df, show=False, ax=ax, min_freq=1, antenna=antenna)
-    ax = plot_rssi_df(df=df, show=False, ax=ax, antenna=antenna)
+    df = filter_df(df=df, antenna=antenna)
 
-    ax.set_xlim([starting_date, ending_date])
-    return ax
+    axes = plot_line_rssi_df(df=df, show=False, axes=axes, antenna=antenna)
+    # ax = plot_rssi_df(df=df, show=False, ax=ax, antenna=antenna)
+    for ax in axes:
+        text = "csv file: " + file_path.split("/")[-1]
+        ax.text(starting_date, ax.get_ylim()[0], file_path.split("/")[-1], fontsize=8, ha="left", va="bottom")
+        ax.set_xlim([starting_date, ending_date])
+    return axes
 
 
-def video_writer(major_video_path, minor_video_path, csv_path, output_video_name, computer_date, video_name):
+def video_writer(major_video_path, minor_video_path, csv_path, output_videos_name, computer_date, video_name,
+                 video_cap=float("inf")):
     major_video_cap = cv2.VideoCapture(major_video_path)
     minor_video_cap = cv2.VideoCapture(minor_video_path)
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -142,12 +150,22 @@ def video_writer(major_video_path, minor_video_path, csv_path, output_video_name
         raise Exception(f"\nthe video could not be loaded\n")
 
     # plot figure
-    fig, ax1 = plt.subplots(figsize=(19, 5))
-    ax1 = preprocess_antenna_file(file_path=csv_path, ax=ax1, starting_time=starting_timestamp,
-                                  ending_time=ending_timestamp, antenna=1, computer_date=computer_date)
+    figs, axes = [], []
+    for i in range(TOOL_GROUPS_NUM):
+        fig, ax = plt.subplots(figsize=(19, 5))
+        figs.append(fig)
+        axes.append(ax)
+
+    axes = preprocess_antenna_file(file_path=csv_path, axes=axes, starting_time=starting_timestamp,
+                                   ending_time=ending_timestamp, antenna=1, computer_date=computer_date)
 
     # output video creation
-    out = cv2.VideoWriter(output_video_name, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+    out_videos = []
+    for i in range(TOOL_GROUPS_NUM):
+        tool_group = axes[i].get_title().split("_")[-1]
+        output_video_name = output_videos_name.replace(".mp4", f"_{tool_group}.mp4")
+        out_videos.append(cv2.VideoWriter(output_video_name, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h)))
+
     cur_frame_num = 0
     print("start creating edited video...")
     while major_video_cap.isOpened():
@@ -156,7 +174,7 @@ def video_writer(major_video_path, minor_video_path, csv_path, output_video_name
             print(f"\tcurrent frame = {cur_frame_num}")
         main_frame_exists, curr_frame_major = major_video_cap.read()
         zoom_frame_exists, curr_frame_minor = minor_video_cap.read()
-        if main_frame_exists and zoom_frame_exists:
+        if main_frame_exists and zoom_frame_exists and cur_frame_num < video_cap:
             # concat two camera angles
             curr_frame_major = cv2.resize(curr_frame_major, (w // 2, h // 2))
             curr_frame_minor = cv2.resize(curr_frame_minor, (w // 2, h // 2))
@@ -167,41 +185,48 @@ def video_writer(major_video_path, minor_video_path, csv_path, output_video_name
             now = datetime.fromtimestamp(starting_timestamp + timestamp)
             curr_frame = cv2.putText(curr_frame, str(now), (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
 
-            # add graph with line
-            line1 = ax1.axvline(x=now, color="blue")
-            plt.tight_layout()
-            fig.canvas.draw()
-            image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-            image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            image_from_plot = np.pad(image_from_plot, pad_width=((0, 30), (0, 0), (0, 0)), constant_values=255)
-            image_from_plot = cv2.resize(image_from_plot, (w, h // 2))
-            image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)
-            line1.remove()
+            for i in range(TOOL_GROUPS_NUM):
+                # add graph with line
+                fig = figs[i]
+                ax = axes[i]
+                line1 = ax.axvline(x=now, color="blue")
+                fig.tight_layout()
+                fig.canvas.draw()
+                image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                image_from_plot = np.pad(image_from_plot, pad_width=((0, 30), (0, 0), (0, 0)), constant_values=255)
+                image_from_plot = cv2.resize(image_from_plot, (w, h // 2))
+                image_from_plot = cv2.cvtColor(image_from_plot, cv2.COLOR_RGB2BGR)
+                line1.remove()
 
-            # merge and save
-            new_frame = cv2.vconcat([curr_frame, image_from_plot])
-            out.write(new_frame)
+                # merge and save
+                new_frame = cv2.vconcat([curr_frame, image_from_plot])
+                out_videos[i].write(new_frame)
 
         else:
             break
 
     major_video_cap.release()
     minor_video_cap.release()
-    out.release()
+    for out in out_videos:
+        out.release()
 
     cv2.destroyAllWindows()
     print("finished video feed creation")
 
 
-def create_audio(audio_input, video_input, output_name):
+def create_audio(audio_input, videos_input, output_suffix):
     audio = ffmpeg.input(audio_input).audio
-    input_video = ffmpeg.input(video_input).video
-    print("merging audio to video...")
-    ffmpeg.concat(input_video, audio, v=1, a=1).output(output_name).run(overwrite_output=True)
+    for video_name in os.listdir(videos_input):
+        video_path = os.path.join(videos_input, video_name)
+        input_video = ffmpeg.input(video_path).video
+        print("merging audio to video...")
+        output_name = video_path.replace(".mp4", f"{output_suffix}.mp4")
+        ffmpeg.concat(input_video, audio, v=1, a=1).output(output_name).run(overwrite_output=True)
 
 
 def make_video_from(video_name: str, csv_name: str, station_name: str, composed_video_suffix: str = "_video_only.mp4",
-                    full_video_suffix: str = "_full.mp4"):
+                    full_video_suffix: str = "_full.mp4", computer_date: bool = True, video_cap=float("inf")):
     video_dir_path = f"videos_{station_name}_station/{video_name}"
     if station_name == "sapir":
         major_video_path = os.path.join(video_dir_path, f"CAM_IC_5/{video_name}.mp4")
@@ -217,30 +242,51 @@ def make_video_from(video_name: str, csv_name: str, station_name: str, composed_
     if not os.path.exists(csv_name):
         print("csv not found")
         raise FileNotFoundError
+    output_dir_path = os.path.join(VIDEOS_OUTPUT_DIR, f"output_{video_name}")
+    os.makedirs(output_dir_path)
     composed_video_name = video_name + composed_video_suffix
+    composed_video_name = os.path.join(output_dir_path, composed_video_name)
     video_writer(major_video_path=major_video_path, minor_video_path=minor_video_path, csv_path=csv_name,
-                 output_video_name=composed_video_name, computer_date=True, video_name=video_name)
-    output_video_name = video_name + full_video_suffix
-    create_audio(audio_input=major_video_path, video_input=composed_video_name, output_name=output_video_name)
+                 output_videos_name=composed_video_name, computer_date=computer_date, video_name=video_name,
+                 video_cap=video_cap)
+
+    create_audio(audio_input=major_video_path, videos_input=output_dir_path, output_suffix="_with_audio")
 
 
-def main():
-    video_name = '10-21-21_14-40-01.000'
-    csv_name = "lab_unlabeled/sapir_bob_21_10/2021_10_21_14_43_05"
-    make_video_from(video_name=video_name, csv_name=csv_name, station_name="sapir")
+def find_closest(video_name, station) -> str:
+    # TODO: fix
+    sub_dir = f"{station}_{video_name.split('_')[0]}"
+    dir_path = os.path.join(CSV_INPUT_DIR, sub_dir)
+    wanted_timestamp = datetime.strptime(video_name, '%d-%m-%y_%H-%M-%S')
+    files_lisr = []
+    for file_name in os.listdir(dir_path):
+        timestamp = datetime.strptime(file_name, "%d-%m-%y_%H_M%S")
+        files_lisr.append((abs(timestamp-wanted_timestamp), timestamp, file_name))
+    delay, timestamp, file_name = sorted(files_lisr)[0]
+    print(f"{delay=},{timestamp=},{file_name=}")
+    return file_name
 
 
-# video_name = '10-22-21_10-26-14'
-# video_path = 'axis_bob/VIDEO_NAME'
-# video_dir_path = video_path.replace("VIDEO_NAME", video_name)
-# csv_name = 'lab_unlabeled/axis_bob_22_10/2021_10_22_10_25_01'
-# suffix = "Date_video_only.mp4"
-# video_writer(video_dir_path=video_dir_path, video_name=video_name, csv_path=csv_name, output_video_suffix=suffix,
-#              computer_date=False)
-# edited_video = video_name + suffix
-# create_audio(audio_dir_path=video_dir_path, audio_name=video_name, video_input=edited_video,
-#              output_name=video_name + "Date_full.mp4")
+def main(args):
+    video_name, station, csv_name, video_cap = args.vi, args.s, args.csv, args.vf
+    if not station:
+        station = "robert"
+        if len(video_name.split(".")) > 1:
+            station = "sapir"
+    if not csv_name:
+        csv_name = find_closest(video_name, station)
+
+    make_video_from(video_name=video_name, csv_name=csv_name, station_name=station, computer_date=True,
+                    composed_video_suffix="_video_only.mp4", full_video_suffix="_full.mp4", video_cap=video_cap)
+
 
 if __name__ == '__main__':
     # create_rfid_index()
-    main()
+    parser = argparse.ArgumentParser(
+        description="create videos for each wanted tool from conf. merged with the given input")
+    parser.add_argument('vi', type=str, help='video input name')
+    parser.add_argument('-s', metavar="station name", type=str, help='station name (robert/sapir)')
+    parser.add_argument('-csv', metavar="csv path", type=str, help='csv path for rfid scan')
+    parser.add_argument('-vf', metavar="video frame", type=str, help='take only vf frame from video',
+                        default=float("inf"))
+    main(parser.parse_args())

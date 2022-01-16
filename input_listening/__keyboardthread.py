@@ -1,5 +1,5 @@
-from antennahandler import create_antenna_thread, ANTENNA_PATH
-from audiohandler import create_audio_thread, AUDIO_PATH
+from __antennahandler import create_antenna_thread, ANTENNA_PATH
+from __audiohandler import create_audio_thread, AUDIO_PATH
 import time
 import re
 import os

@@ -2,33 +2,21 @@ import pandas as pd
 import os
 from datetime import datetime
 import re
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Iterable
 import seaborn as sns
 
+dir_len = len(dir())
 SYRINGES_GROUP = 'syringes'
 BREATHING_GROUP = 'breathing'
+MASK_GROUP = 'mask'
 MEDICATION_GROUP = 'medication'
-
-
-def epc_range_classes(group: str, df: Optional[pd.DataFrame] = None):
-    epc_range = (30303030, 39393939)
-    epc = 0
-    if group == SYRINGES_GROUP:
-        epc_range = (30303730, 30303939)
-    elif group == BREATHING_GROUP:
-        epc_range = (30303030, 30303139)
-        epc = 30303234
-    elif group == MEDICATION_GROUP:
-        epc_range = (30313030, 39393939)
-        epc = 30303230
-    if df is not None:
-        return df[df["EPC"].astype(int).between(left=epc_range[0], right=epc_range[1]) | df["EPC"].astype(int) == epc]
-    else:
-        return epc_range
+AIRWAY_GROUP = 'airway'
+BOARD_GROUP = 'board'
+TOOL_GROUPS_NUM = len(dir()) - dir_len - 1
+SIZE_SCALING = 10
 
 
 def fixing_jump_de_syncs(input_dir_path, output_dir_path):
@@ -189,7 +177,7 @@ def save_sync_groups_only(input_dir_path, output_dir_path):
     print("Done")
 
 
-def plot_epc_statistics(input_dir_path, epc_range: Optional[str] = None):
+def plot_epc_statistics(input_dir_path):
     def create_merged_df(input_dir_path):
         merged_df = pd.DataFrame()
         for file_name in os.listdir(input_dir_path):
@@ -212,8 +200,6 @@ def plot_epc_statistics(input_dir_path, epc_range: Optional[str] = None):
         return merged_df
 
     merged_df = create_merged_df(input_dir_path)
-    if epc_range is not None:
-        merged_df = epc_range_classes(epc_range, merged_df)
     # creating counter_file df
     c_df = pd.pivot_table(merged_df, values='Antenna', index='File', columns='EPC', fill_value=0, aggfunc=len)
 
@@ -329,16 +315,13 @@ def plot_rssi_df(df: pd.DataFrame, title: str = 'RSSI_std', show: bool = True, a
         return ax
 
 
-def plot_rssi_file(file_path, show: bool = True, ax: plt.Axes = None, antenna=2):
+def plot_rssi_file(file_path, show: bool = True, ax: plt.Axes = None, antenna: int = 1):
     print(f"\nworking on {file_path}")
     df = pd.read_csv(filepath_or_buffer=file_path, dtype=str)[["EPC", "Time", "Date", "Antenna", "RSSI"]]
     df = df.astype({'Date': 'datetime64', 'RSSI': 'int', 'Antenna': 'int', 'Time': 'int'})
     file_path = file_path.split('\\')[1]
     title = f"RSSI_std_{file_path}"
     return plot_rssi_df(df, title, show, ax, antenna)
-
-
-SIZE_SCALING = 10
 
 
 def run_plotting_dir(input_dir_path):
@@ -366,6 +349,58 @@ def run_plotting_dir(input_dir_path):
     return problematic_files
 
 
+def filter_df(df: pd.DataFrame, antenna: int = 1):
+    group_df = pd.read_csv(filepath_or_buffer="helper files/rfid_index.csv", dtype=str, index_col="EPC")
+    df = df[df["Antenna"] == antenna]
+
+    vc = df["EPC"].value_counts().to_frame().reset_index().astype('int').rename(columns={"EPC": "Freq", "index": "EPC"})
+    vc = vc.join(group_df, on="EPC")
+    vc = vc[vc["Group"] != "_"]
+    # vc = vc[vc.groupby(['Group'])['Freq'].transform(max) == df['Freq']]
+    g_vc = vc.groupby('Group').agg({"Freq": 'max'}).reset_index(col_fill='Group')
+    vc = pd.merge(vc, g_vc, on=['Freq', 'Group'])
+    epcs = list(vc["EPC"].astype('str'))
+    breathing_vc = vc[vc["Group"] == BREATHING_GROUP]["EPC"]
+    if len(breathing_vc) > 0:
+        breathing_epc = vc[vc["Group"] == BREATHING_GROUP]["EPC"].item()
+        other_breathing_epc = breathing_epc - 1 if breathing_epc % 2 else breathing_epc + 1
+        epcs.append(str(other_breathing_epc))
+    df = df[df["EPC"].isin(epcs)].astype({"EPC": 'int'})
+    df = df.join(group_df, on="EPC")
+    return df
+
+
+def plot_line_rssi_df(df: pd.DataFrame, title: str = "RSSI_lines", show: bool = False, axes: Iterable[plt.Axes] = None,
+                      antenna: int = 1, text: str = ""):
+    df = df[df["Antenna"] == antenna].copy()
+    if axes is None:
+        fig, axes = plt.subplots(figsize=(19, 5), ncols=1, nrows=TOOL_GROUPS_NUM)
+    assert len(axes) == 6
+    y_column = 'EPC'
+    if "Tool_name" in df.columns:
+        y_column = 'Tool_name'
+    df["group"] = df["group"].astype('str')
+    rssi_min = df["RSSI"].min()
+    rssi_max = df["RSSI"].max()
+    for i, (group_name, grouped_df) in enumerate(df.groupby("Group")):
+        # print(group_name)
+        max_group = grouped_df["group"].value_counts().index[0]
+        markers = {'max': "o", 'other': "X"}
+        grouped_df["marker_style"] = grouped_df["group"].apply(lambda x: 'max' if x == max_group else 'other')
+        ax = sns.lineplot(x='Date', y='RSSI', data=grouped_df, hue=y_column, markers=markers, ax=axes[i],
+                          legend=False, style='marker_style')
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+        ax.set_xlabel("Time")
+        y_label = str(grouped_df["Tool_name"].iloc[0]) + ", " + str(grouped_df["EPC"].iloc[0])
+        ax.set_ylabel(y_label)
+        ax.set_title(f"{title}_{group_name}")
+        ax.set_ylim([rssi_min, rssi_max])
+    if show:
+        plt.show()
+    else:
+        return axes
+
+
 def main():
     # dirs = ["axis_bob_21_10", "axis_bob_22_10", "new_bob_21_10", "new_bob_22_10"]
     # all_problematic_files = []
@@ -380,46 +415,6 @@ def main():
     plot_antenna_file(os.path.join(output_dir_path, "2021_10_21_16_51_41"), min_freq=1)
     plot_antenna_file(os.path.join(output_dir_path, "2021_10_21_16_51_41"), antenna='1', min_freq=1)
     plot_rssi_file(os.path.join(output_dir_path, "2021_10_21_16_51_41"), antenna=1)
-
-    # plot_epc_statistics(output_dir_path, epc_range=None)
-
-
-problematic_files_to_plot = ['lab_unlabeled\\axis_bob_21_10\\2021_10_21_09_10_58',
-                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_09_59_02',
-                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_11_27_40',
-                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_12_29_14',
-                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_14_03_25',
-                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_14_39_32',
-                             'lab_unlabeled\\axis_bob_21_10\\2021_10_21_15_22_05',
-                             'lab_unlabeled\\axis_bob_22_10\\2021_10_22_09_58_46',
-                             'lab_unlabeled\\axis_bob_22_10\\2021_10_22_10_25_01',
-                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_26_29',
-                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_43_11',
-                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_29_53',
-                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_38_52',
-                             'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_52_27']
-
-after_changes = ['lab_unlabeled\\new_bob_21_10\\2021_10_21_09_55_05',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_09_55_31',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_10_26_19',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_10_49_08',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_11_04_13',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_11_39_53',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_11_45_10',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_13_21_08',
-                 'lab_unlabeled\\new_bob_21_10\\2021_10_21_14_43_05',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_10_10',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_26_29',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_09_43_11',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_10_01_01',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_10_26_47',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_10_46_17',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_07_50',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_29_53',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_11_57_42',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_17_45',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_38_52',
-                 'lab_unlabeled\\new_bob_22_10\\2021_10_22_12_52_27']
 
 if __name__ == '__main__':
     main()
