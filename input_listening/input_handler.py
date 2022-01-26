@@ -12,6 +12,11 @@ DATA_FOLDER = "input_files"
 LAB_AUDIO_LABELED_DIR = "lab_audio_labeled"
 
 
+# ----------------------------------------------------------------------------------------------------------------------
+# This file is the primarily responsible for input handling.
+# The other classes in this package are working but not being used in the final product.
+# ----------------------------------------------------------------------------------------------------------------------
+
 def dir_handler(path: str, parent_path: Optional[str] = None, path_is_dir: bool = True) -> str:
     if parent_path is not None:
         if not os.path.isdir(parent_path):
@@ -62,6 +67,12 @@ def create_lab_train_set_with_break(dir_path: Optional[str] = None, timestamp_wo
 
 
 def create_train_set_from_serial_only(dir_path: Optional[str] = None, timestamp_working: Optional[bool] = True):
+    """
+    create thread for listening to the serial port
+    :param dir_path:
+    :param timestamp_working:
+    :return:
+    """
     if dir_path is None:
         dir_path = re.sub(r"\s|-|:", "_", str(datetime.now())).split(".")[0]
     dir_path = dir_handler(dir_path, parent_path=DATA_FOLDER, path_is_dir=False)
@@ -71,6 +82,10 @@ def create_train_set_from_serial_only(dir_path: Optional[str] = None, timestamp_
 
 
 def print_serial():
+    """
+    print serial port recording
+    :return:
+    """
     temp_dir = f"temp_{int(time.time())}"
     a_h = create_antenna_thread(temp_dir).antenna_handler
     a_h.print_pretty_serial()
@@ -78,6 +93,10 @@ def print_serial():
 
 
 def main():
+    """
+    creates a listening thread that saves all incoming input to a file, stops at key press
+    :return:
+    """
     antenna = create_train_set_from_serial_only()
     try:
         while True:
@@ -88,5 +107,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # shows in terminal all available ports, good for debugging: python -m serial.tools.list_ports
     main()
-    # python -m serial.tools.list_ports

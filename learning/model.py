@@ -14,6 +14,10 @@ num_inputs = len(data_features)
 num_outputs = len(data_labels)
 
 
+# ----------------------------------------------------------------------------------------------------------------------
+# This package is just a first prototype, nothing in it is really used or checked carefully.
+# ----------------------------------------------------------------------------------------------------------------------
+
 class Model:
     def __init__(self, uni_model_path: str):
         self.uni_model_path = uni_model_path

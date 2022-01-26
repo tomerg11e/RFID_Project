@@ -5,7 +5,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from typing import Optional, Tuple, Iterable
+from typing import Optional, Iterable
 import seaborn as sns
 
 dir_len = len(dir())
@@ -19,7 +19,23 @@ TOOL_GROUPS_NUM = len(dir()) - dir_len - 1
 SIZE_SCALING = 10
 
 
+# -----------------------------------------------------------------------------------------------------------------------
+# This file has a lot of plotting function and filtering function for the csv files obtained from the rfid simulation.
+# Most of the functions works but unrelated to the finished product
+#
+# The used function in this file are:
+#   check_de_sync_groups
+#   filter_df_by_freq
+#   plot_line_rssi_df
+# -----------------------------------------------------------------------------------------------------------------------
+
 def fixing_jump_de_syncs(input_dir_path, output_dir_path):
+    """
+    an attempt to fixing the time de-syncs
+    :param input_dir_path:
+    :param output_dir_path:
+    :return:
+    """
     def next_values(input_file, time_delta, de_syncs):
         line = input_file.readline()[:-1]
         values = line.split(',')
@@ -140,6 +156,12 @@ def check_de_sync_groups(df: pd.DataFrame, print_bool=True, no_signal_ok_cooldow
 
 
 def save_sync_groups_only(input_dir_path, output_dir_path):
+    """
+    reading a file and filtering it by sync_group. finally, writing the sync_group as a file in output_dir_path
+    :param input_dir_path:
+    :param output_dir_path:
+    :return:
+    """
     antenna_time_multipliers = []  # contains tuples of antenna time diff and real time diff
     for file_name in os.listdir(input_dir_path):
 
@@ -189,6 +211,11 @@ def save_sync_groups_only(input_dir_path, output_dir_path):
 
 
 def plot_epc_statistics(input_dir_path):
+    """
+    gets a directory full of csv files and makes plots from all of them together
+    :param input_dir_path:
+    :return:
+    """
     def create_merged_df(input_dir_path):
         merged_df = pd.DataFrame()
         for file_name in os.listdir(input_dir_path):
