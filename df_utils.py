@@ -19,7 +19,7 @@ TOOL_GROUPS_NUM = len(dir()) - dir_len - 1
 SIZE_SCALING = 10
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # This file has a lot of plotting function and filtering function for the csv files obtained from the rfid simulation.
 # Most of the functions works but unrelated to the finished product
 #
@@ -27,7 +27,7 @@ SIZE_SCALING = 10
 #   check_de_sync_groups
 #   filter_df_by_freq
 #   plot_line_rssi_df
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 def fixing_jump_de_syncs(input_dir_path, output_dir_path):
     """
@@ -36,6 +36,7 @@ def fixing_jump_de_syncs(input_dir_path, output_dir_path):
     :param output_dir_path:
     :return:
     """
+
     def next_values(input_file, time_delta, de_syncs):
         line = input_file.readline()[:-1]
         values = line.split(',')
@@ -216,6 +217,7 @@ def plot_epc_statistics(input_dir_path):
     :param input_dir_path:
     :return:
     """
+
     def create_merged_df(input_dir_path):
         merged_df = pd.DataFrame()
         for file_name in os.listdir(input_dir_path):
