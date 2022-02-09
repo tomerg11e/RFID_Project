@@ -5,70 +5,13 @@ import argparse
 import cv2
 import os
 import ffmpeg
-import math
 import time
 from datetime import datetime
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from typing import Optional, Iterable, List
 
 VIDEOS_OUTPUT_DIR = "output_videos"
 CSV_INPUT_DIR = "input_files"
-
-
-def show_video(video_path, video_name):
-    """
-    show video with timestamps on screen. CANNOT SHOW ON REAL TIMESCALE
-    :param video_path:
-    :param video_name:
-    :return:
-    """
-    video = cv2.VideoCapture(video_path)
-    fps = math.floor(video.get(cv2.CAP_PROP_FPS))
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    # frame_delay = 1000 // fps  # does not really milliseconds due to computations between frames
-    frame_delay = 1
-    starting_timestamp = time.mktime(time.strptime('10-21-21_09-10-47', '%m-%d-%y_%H-%M-%S'))
-    ret, frame = video.read()
-
-    frame_counter = 0
-    while video.isOpened():
-        frame_counter += 1
-        ret, frame = video.read()
-
-        timestamp = starting_timestamp + frame_counter // fps
-        date = datetime.fromtimestamp(timestamp)
-        text_output = f"{date}, {frame_counter=}"
-        cv2.putText(frame, text_output, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
-        if (cv2.waitKey(frame_delay) & 0xFF) == ord('q') or not ret:
-            break
-        cv2.imshow(video_name, frame)
-    video.release()
-    cv2.destroyAllWindows()
-
-
-def show_plot(file):
-    """
-    show plot of a csv file onscreen with moving line
-    :param file:
-    :return:
-    """
-    frame_delay = 20
-    num_frames = 100
-
-    fig, plot_ax = plt.subplots(nrows=1, ncols=1, figsize=(50, 30))
-    plot_ax = preprocess_antenna_file(file_path=file, axes=plot_ax)
-    xs = np.linspace(plot_ax.get_xlim()[0], plot_ax.get_xlim()[1], num_frames)
-    line = plot_ax.axvline(xs[0])  # create vertical line in most left side position
-
-    def animate(i):
-        line.set_xdata(xs[i])  # update the line position on x axis
-        return line,
-
-    ani = animation.FuncAnimation(
-        fig, animate, frames=num_frames, interval=frame_delay, blit=True, save_count=50)
-
-    plt.show()
 
 
 def preprocess_antenna_file(file_path, axes: Iterable[plt.Axes], starting_time: Optional[float] = None,
@@ -248,6 +191,7 @@ def make_video_from(video_name: str, csv_name: str, station_name: str, composed_
                     wanted_epcs: Optional[List[str]] = None):
     """
     managing input correctness and video making
+    :param wanted_epcs:
     :param video_name:
     :param csv_name:
     :param station_name:
