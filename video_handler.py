@@ -238,7 +238,8 @@ def find_closest(video_name, station) -> str:
     wanted_timestamp = datetime.strptime(video_name, '%m-%d-%y_%H-%M-%S')
     files_list = []
     for file_name in os.listdir(dir_path):
-        timestamp = datetime.strptime(file_name, "%Y_%m_%d_%H_%M_%S")
+        split_file_name = file_name.split(".")[0]
+        timestamp = datetime.strptime(split_file_name, "%Y_%m_%d_%H_%M_%S")
         files_list.append((abs(timestamp - wanted_timestamp), timestamp, file_name))
     delay, timestamp, file_name = sorted(files_list)[0]
     print(f"for file {video_name}, from station {station}")

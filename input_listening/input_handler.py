@@ -18,7 +18,7 @@ def dir_handler(path: str, parent_path: Optional[str] = None, path_is_dir: bool 
     return path
 
 
-def create_train_set_from_serial_only(dir_path: Optional[str] = None, timestamp_working: Optional[bool] = True):
+def create_file_from_serial(dir_path: Optional[str] = None, timestamp_working: Optional[bool] = True):
     """
     create thread for listening to the serial port
     :param dir_path:
@@ -26,22 +26,11 @@ def create_train_set_from_serial_only(dir_path: Optional[str] = None, timestamp_
     :return:
     """
     if dir_path is None:
-        dir_path = re.sub(r"\s|-|:", "_", str(datetime.now())).split(".")[0]
+        dir_path = re.sub(r"\s|-|:", "_", str(datetime.now()).split(".")[0]) + ".csv"
     dir_path = dir_handler(dir_path, parent_path=DATA_FOLDER, path_is_dir=False)
     antenna_thread = create_antenna_thread(dir_path, timestamp_working=timestamp_working, use_exact_dir_name=True)
     antenna_thread.start()
     return antenna_thread
-
-
-def print_serial():
-    """
-    print serial port recording
-    :return:
-    """
-    temp_dir = f"temp_{int(time.time())}"
-    a_h = create_antenna_thread(temp_dir).antenna_handler
-    a_h.print_pretty_serial()
-    os.rmdir(temp_dir)
 
 
 def main():
@@ -49,7 +38,7 @@ def main():
     creates a listening thread that saves all incoming input to a file, stops at key press
     :return:
     """
-    antenna = create_train_set_from_serial_only()
+    antenna = create_file_from_serial()
     try:
         while True:
             time.sleep(2)
